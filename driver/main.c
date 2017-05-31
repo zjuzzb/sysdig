@@ -227,9 +227,9 @@ static int kprobe_pre_close(struct kprobe *p, struct pt_regs *regs)
 {
 //	int id = syscall_get_nr(current, regs);
 	int id = __NR_close;
-	pr_info("<%s> PRE: id=%d\n",
-		p->symbol_name, (int)id);
-	syscall_enter_probe(NULL, regs, id);
+//	pr_info("<%s> PRE: id=%d\n",
+//		p->symbol_name, (int)id);
+//	syscall_enter_probe(NULL, regs, id);
 	return 0;
 }
 
@@ -237,9 +237,11 @@ static int kprobe_pre_close(struct kprobe *p, struct pt_regs *regs)
 static void handler_post(struct kprobe *p, struct pt_regs *regs,
 				unsigned long flags)
 {
-	int id = syscall_get_nr(current, regs);
-	pr_info("<%s> POST: id=%d\n",
-		p->symbol_name, (int)id);
+//		int id = syscall_get_nr(current, regs);
+	int id = __NR_close;
+//	pr_info("<%s> POST: id=%d\n",
+//		p->symbol_name, (int)id);
+//	syscall_exit_probe(NULL, regs, id);
 }
 
 static int krprobe_pre_close(struct kretprobe_instance *ri, struct pt_regs *regs)
@@ -267,7 +269,7 @@ static struct kprobe kprobes[] = {
 	{
 		.symbol_name	= "sys_close",
 		.pre_handler	= kprobe_pre_close,
-//		.post_handler	= handler_post,
+		.post_handler	= handler_post,
 	},
 /*
 	{
@@ -402,7 +404,6 @@ int kprobe_init(void)
 	int ret;
 	int j;
 
-/*
 	struct kprobe* kpp;
 
 	for (j = 0; j < sizeof(kprobes) / sizeof(kprobes[0]); j++) {
@@ -416,7 +417,7 @@ int kprobe_init(void)
 
 		pr_info("Planted kprobe for %s\n", kpp->symbol_name);
 	}
-*/
+/*
 	struct kretprobe* kpp;
 
 	for (j = 0; j < sizeof(kretprobes) / sizeof(kretprobes[0]); j++) {
@@ -427,14 +428,10 @@ int kprobe_init(void)
 			pr_err("register_kretprobe failed, returned %d\n", ret);
 			return ret;
 		}
-ret = register_kretprobe(kpp);
-if (ret < 0) {
-	pr_err("register_kretprobe failed 1, returned %d\n", ret);
-	return ret;
-}
 
 		pr_info("Planted kretprobe %p for %s\n", kpp, kpp->kp.symbol_name);
 	}
+*/
 
 	return 0;
 }
@@ -443,16 +440,16 @@ void kprobe_exit(void)
 {
 	int j;
 
-/*
 	for (j = 0; j < sizeof(kprobes) / sizeof(kprobes[0]); j++) {
 		unregister_kprobe(&kprobes[j]);
 		pr_info("kprobe for %s unregistered\n", kprobes[j].symbol_name);
 	}
-*/	
+/*
 	for (j = 0; j < sizeof(kretprobes) / sizeof(kretprobes[0]); j++) {
 		unregister_kretprobe(&kretprobes[j]);
 		pr_info("kretprobe %p for %s unregistered\n", &kretprobes[j], kretprobes[j].kp.symbol_name);
 	}
+*/	
 }
 
 /*
