@@ -52,6 +52,7 @@ along with sysdig.  If not, see <http://www.gnu.org/licenses/>.
 #include <net/sock.h>
 #include <asm/asm-offsets.h>	/* For NR_syscalls */
 #include <asm/unistd.h>
+#include <linux/kprobes.h>
 
 #include "driver_config.h"
 #include "ppm_ringbuffer.h"
@@ -155,7 +156,7 @@ static struct class *g_ppm_class;
 static unsigned int g_ppm_numdevs;
 static int g_ppm_major;
 bool g_tracers_enabled = false;
-bool g_simple_mode_enabled = false;
+bool g_simple_mode_enabled = true;
 static const struct file_operations g_ppm_fops = {
 	.open = ppm_open,
 	.release = ppm_release,
@@ -221,6 +222,131 @@ static void compat_unregister_trace(void *func, const char *probename, struct tr
 #endif
 }
 
+/* xxxx kprobe pre_handler: called just before the probed instruction is executed */
+static int kprobe_pre_close(struct kprobe *p, struct pt_regs *regs)
+{
+//	int id = syscall_get_nr(current, regs);
+	int id = __NR_close;
+	pr_info("<%s> PRE: id=%d\n",
+		p->symbol_name, (int)id);
+	syscall_enter_probe(NULL, regs, id);
+	return 0;
+}
+
+/* kprobe post_handler: called after the probed instruction is executed */
+static void handler_post(struct kprobe *p, struct pt_regs *regs,
+				unsigned long flags)
+{
+	int id = syscall_get_nr(current, regs);
+	pr_info("<%s> POST: id=%d\n",
+		p->symbol_name, (int)id);
+}
+
+static int krprobe_pre_close(struct kretprobe_instance *ri, struct pt_regs *regs)
+{
+//	int id = syscall_get_nr(current, regs);
+	int id = __NR_close;
+//	pr_info("<%s> PRE: id=%d\n",
+//		"!close", (int)id);
+//	syscall_enter_probe(NULL, regs, id);
+	return 0;
+}
+
+static int krprobe_post_close(struct kretprobe_instance *ri, struct pt_regs *regs)
+{
+//	int id = syscall_get_nr(ri->task, regs);
+	int id = __NR_close;
+//	pr_info("<%s> RET: id=%d\n",
+//		"!close", (int)id);
+//	syscall_exit_probe(NULL, regs, id);
+	return 0;
+}
+
+/* kprobe handlers */
+static struct kprobe kprobes[] = {
+	{
+		.symbol_name	= "sys_close",
+		.pre_handler	= kprobe_pre_close,
+//		.post_handler	= handler_post,
+	},
+/*
+	{
+		.symbol_name	= "sys_connect",
+		.pre_handler	= handler_pre,
+		.post_handler	= handler_post,
+	},
+	{
+		.symbol_name	= "sys_accept",
+		.pre_handler	= handler_pre,
+		.post_handler	= handler_post,
+	},
+	{
+		.symbol_name	= "sys_accept4",
+		.pre_handler	= handler_pre,
+		.post_handler	= handler_post,
+	},
+	{
+		.symbol_name	= "sys_execve",
+		.pre_handler	= handler_pre,
+		.post_handler	= handler_post,
+	},
+	{
+		.symbol_name	= "sys_clone",
+		.pre_handler	= handler_pre,
+		.post_handler	= handler_post,
+	},
+	{
+		.symbol_name	= "sys_fork",
+		.pre_handler	= handler_pre,
+		.post_handler	= handler_post,
+	},
+	{
+		.symbol_name	= "sys_vfork",
+		.pre_handler	= handler_pre,
+		.post_handler	= handler_post,
+	},
+	{
+		.symbol_name	= "sys_chdir",
+		.pre_handler	= handler_pre,
+		.post_handler	= handler_post,
+	},
+	{
+		.symbol_name	= "sys_fchdir",
+		.pre_handler	= handler_pre,
+		.post_handler	= handler_post,
+	},
+	{
+		.symbol_name	= "sys_dup",
+		.pre_handler	= handler_pre,
+		.post_handler	= handler_post,
+	},
+	{
+		.symbol_name	= "sys_dup2",
+		.pre_handler	= handler_pre,
+		.post_handler	= handler_post,
+	},
+	{
+		.symbol_name	= "sys_dup3",
+		.pre_handler	= handler_pre,
+		.post_handler	= handler_post,
+	},
+	{
+		.symbol_name	= "sys_socket",
+		.pre_handler	= handler_pre,
+		.post_handler	= handler_post,
+	},
+*/	
+};
+
+static struct kretprobe kretprobes[] = {
+	{
+		.kp.symbol_name	= "sys_close",
+		.handler		= krprobe_post_close,
+		.entry_handler	= krprobe_pre_close,
+		.maxactive = 8,
+	},
+};
+
 static struct ppm_consumer_t *ppm_find_consumer(struct task_struct *consumer_id)
 {
 	struct ppm_consumer_t *el = NULL;
@@ -265,6 +391,67 @@ static void check_remove_consumer(struct ppm_consumer_t *consumer, int remove_fr
 		free_percpu(consumer->ring_buffers);
 
 		vfree(consumer);
+	}
+}
+
+/*
+ * xxxx kprobe attach/detach functions
+ */
+int kprobe_init(void)
+{
+	int ret;
+	int j;
+
+/*
+	struct kprobe* kpp;
+
+	for (j = 0; j < sizeof(kprobes) / sizeof(kprobes[0]); j++) {
+		kpp = &kprobes[j];
+
+		ret = register_kprobe(kpp);
+		if (ret < 0) {
+			pr_err("register_kprobe failed, returned %d\n", ret);
+			return ret;
+		}
+
+		pr_info("Planted kprobe for %s\n", kpp->symbol_name);
+	}
+*/
+	struct kretprobe* kpp;
+
+	for (j = 0; j < sizeof(kretprobes) / sizeof(kretprobes[0]); j++) {
+		kpp = &kretprobes[j];
+
+		ret = register_kretprobe(kpp);
+		if (ret < 0) {
+			pr_err("register_kretprobe failed, returned %d\n", ret);
+			return ret;
+		}
+ret = register_kretprobe(kpp);
+if (ret < 0) {
+	pr_err("register_kretprobe failed 1, returned %d\n", ret);
+	return ret;
+}
+
+		pr_info("Planted kretprobe %p for %s\n", kpp, kpp->kp.symbol_name);
+	}
+
+	return 0;
+}
+
+void kprobe_exit(void)
+{
+	int j;
+
+/*
+	for (j = 0; j < sizeof(kprobes) / sizeof(kprobes[0]); j++) {
+		unregister_kprobe(&kprobes[j]);
+		pr_info("kprobe for %s unregistered\n", kprobes[j].symbol_name);
+	}
+*/	
+	for (j = 0; j < sizeof(kretprobes) / sizeof(kretprobes[0]); j++) {
+		unregister_kretprobe(&kretprobes[j]);
+		pr_info("kretprobe %p for %s unregistered\n", &kretprobes[j], kretprobes[j].kp.symbol_name);
 	}
 }
 
@@ -421,27 +608,33 @@ static int ppm_open(struct inode *inode, struct file *filp)
 	if (!g_tracepoint_registered) {
 		pr_info("starting capture\n");
 		/*
-		 * Enable the tracepoints
+		 * xxxx Enable the tracepoints or the kprobes depending on the driver mode
 		 */
+		if (g_simple_mode_enabled) {
+			ret = kprobe_init();
+			if (ret) {
+				goto err_sys_exit;
+			}
+		} else {
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 20)
+			ret = compat_register_trace(syscall_exit_probe, "sys_exit", tp_sys_exit);
+#else
+			ret = register_trace_syscall_enter(syscall_enter_probe);
+#endif
+			if (ret) {
+				pr_err("can't create the sys_exit tracepoint\n");
+				goto err_sys_exit;
+			}
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 20)
-		ret = compat_register_trace(syscall_exit_probe, "sys_exit", tp_sys_exit);
+			ret = compat_register_trace(syscall_enter_probe, "sys_enter", tp_sys_enter);
 #else
-		ret = register_trace_syscall_enter(syscall_enter_probe);
+			ret = register_trace_syscall_exit(syscall_exit_probe);
 #endif
-		if (ret) {
-			pr_err("can't create the sys_exit tracepoint\n");
-			goto err_sys_exit;
-		}
-
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 20)
-		ret = compat_register_trace(syscall_enter_probe, "sys_enter", tp_sys_enter);
-#else
-		ret = register_trace_syscall_exit(syscall_exit_probe);
-#endif
-		if (ret) {
-			pr_err("can't create the sys_enter tracepoint\n");
-			goto err_sys_enter;
+			if (ret) {
+				pr_err("can't create the sys_enter tracepoint\n");
+				goto err_sys_enter;
+			}
 		}
 
 		ret = compat_register_trace(syscall_procexit_probe, "sched_process_exit", tp_sched_process_exit);
@@ -479,17 +672,24 @@ err_signal_deliver:
 err_sched_switch:
 	compat_unregister_trace(syscall_procexit_probe, "sched_process_exit", tp_sched_process_exit);
 err_sched_procexit:
+
+	if (!g_simple_mode_enabled) {
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 20)
-	compat_unregister_trace(syscall_enter_probe, "sys_enter", tp_sys_enter);
+		compat_unregister_trace(syscall_enter_probe, "sys_enter", tp_sys_enter);
 #else
-	unregister_trace_syscall_enter(syscall_enter_probe);
+		unregister_trace_syscall_enter(syscall_enter_probe);
 #endif
+	}
 err_sys_enter:
+	if (g_simple_mode_enabled) {
+		kprobe_exit();
+	} else {
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 20)
-	compat_unregister_trace(syscall_exit_probe, "sys_exit", tp_sys_exit);
+		compat_unregister_trace(syscall_exit_probe, "sys_exit", tp_sys_exit);
 #else
-	unregister_trace_syscall_exit(syscall_exit_probe);
+		unregister_trace_syscall_exit(syscall_exit_probe);
 #endif
+	}
 err_sys_exit:
 	ring->open = false;
 err_init_ring_buffer:
@@ -556,13 +756,17 @@ static int ppm_release(struct inode *inode, struct file *filp)
 		if (g_tracepoint_registered) {
 			pr_info("no more consumers, stopping capture\n");
 
+			if (g_simple_mode_enabled) {
+				kprobe_exit();
+			} else {
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 20)
-			compat_unregister_trace(syscall_exit_probe, "sys_exit", tp_sys_exit);
-			compat_unregister_trace(syscall_enter_probe, "sys_enter", tp_sys_enter);
+				compat_unregister_trace(syscall_exit_probe, "sys_exit", tp_sys_exit);
+				compat_unregister_trace(syscall_enter_probe, "sys_enter", tp_sys_enter);
 #else
-			unregister_trace_syscall_exit(syscall_exit_probe);
-			unregister_trace_syscall_enter(syscall_enter_probe);
+				unregister_trace_syscall_exit(syscall_exit_probe);
+				unregister_trace_syscall_enter(syscall_enter_probe);
 #endif
+			}
 			compat_unregister_trace(syscall_procexit_probe, "sched_process_exit", tp_sched_process_exit);
 
 #ifdef CAPTURE_CONTEXT_SWITCHES
@@ -1728,7 +1932,11 @@ TRACEPOINT_PROBE(syscall_exit_probe, struct pt_regs *regs, long ret)
 	int socketcall_syscall = -1;
 #endif
 
-	id = syscall_get_nr(current, regs);
+	if (g_simple_mode_enabled) {
+		id = ret;
+	} else {
+		id = syscall_get_nr(current, regs);		
+	}
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_IA32_EMULATION)
 	/*
