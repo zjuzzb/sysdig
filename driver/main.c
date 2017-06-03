@@ -266,75 +266,78 @@ static int krprobe_post_close(struct kretprobe_instance *ri, struct pt_regs *reg
 
 /* kprobe handlers */
 static struct kprobe kprobes[] = {
+/*
+
 	{
 		.symbol_name	= "sys_close",
 		.pre_handler	= kprobe_pre_close,
 		.post_handler	= handler_post,
 	},
-/*
+*/	
 	{
 		.symbol_name	= "sys_connect",
-		.pre_handler	= handler_pre,
+		.pre_handler	= kprobe_pre_close,
 		.post_handler	= handler_post,
 	},
+/*
 	{
 		.symbol_name	= "sys_accept",
-		.pre_handler	= handler_pre,
+		.pre_handler	= kprobe_pre_close,
 		.post_handler	= handler_post,
 	},
 	{
 		.symbol_name	= "sys_accept4",
-		.pre_handler	= handler_pre,
+		.pre_handler	= kprobe_pre_close,
 		.post_handler	= handler_post,
 	},
 	{
 		.symbol_name	= "sys_execve",
-		.pre_handler	= handler_pre,
+		.pre_handler	= kprobe_pre_close,
 		.post_handler	= handler_post,
 	},
 	{
 		.symbol_name	= "sys_clone",
-		.pre_handler	= handler_pre,
+		.pre_handler	= kprobe_pre_close,
 		.post_handler	= handler_post,
 	},
 	{
 		.symbol_name	= "sys_fork",
-		.pre_handler	= handler_pre,
+		.pre_handler	= kprobe_pre_close,
 		.post_handler	= handler_post,
 	},
 	{
 		.symbol_name	= "sys_vfork",
-		.pre_handler	= handler_pre,
+		.pre_handler	= kprobe_pre_close,
 		.post_handler	= handler_post,
 	},
 	{
 		.symbol_name	= "sys_chdir",
-		.pre_handler	= handler_pre,
+		.pre_handler	= kprobe_pre_close,
 		.post_handler	= handler_post,
 	},
 	{
 		.symbol_name	= "sys_fchdir",
-		.pre_handler	= handler_pre,
+		.pre_handler	= kprobe_pre_close,
 		.post_handler	= handler_post,
 	},
 	{
 		.symbol_name	= "sys_dup",
-		.pre_handler	= handler_pre,
+		.pre_handler	= kprobe_pre_close,
 		.post_handler	= handler_post,
 	},
 	{
 		.symbol_name	= "sys_dup2",
-		.pre_handler	= handler_pre,
+		.pre_handler	= kprobe_pre_close,
 		.post_handler	= handler_post,
 	},
 	{
 		.symbol_name	= "sys_dup3",
-		.pre_handler	= handler_pre,
+		.pre_handler	= kprobe_pre_close,
 		.post_handler	= handler_post,
 	},
 	{
 		.symbol_name	= "sys_socket",
-		.pre_handler	= handler_pre,
+		.pre_handler	= kprobe_pre_close,
 		.post_handler	= handler_post,
 	},
 */	
