@@ -4684,7 +4684,7 @@ void sinsp_parser::parse_getsockopt_exit(sinsp_evt *evt)
 	// right now we only parse getsockopt() for SO_ERROR options
 	// if that ever changes, move this check inside
 	// the `if (level == PPM_SOCKOPT_LEVEL_SOL_SOCKET ...)` block
-	if (!m_track_connection_status)
+	if(!m_track_connection_status)
 	{
 		return;
 	}

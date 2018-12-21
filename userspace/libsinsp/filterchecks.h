@@ -243,7 +243,8 @@ public:
 		TYPE_CLIENTIP_NAME = 34,
 		TYPE_SERVERIP_NAME = 35,
 		TYPE_LIP_NAME = 36,
-		TYPE_RIP_NAME = 37
+		TYPE_RIP_NAME = 37,
+		TYPE_CONNECTIONSTATE = 38
 	};
 
 	enum fd_type
@@ -264,6 +265,7 @@ public:
 
 	sinsp_filter_check_fd();
 	sinsp_filter_check* allocate_new();
+	int32_t parse_field_name(const char* str, bool alloc_state, bool needed_for_filtering);
 	uint8_t* extract(sinsp_evt *evt, OUT uint32_t* len, bool sanitize_strings = true);
 	bool compare_ip(sinsp_evt *evt);
 	bool compare_net(sinsp_evt *evt);

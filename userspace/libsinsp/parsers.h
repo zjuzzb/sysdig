@@ -79,6 +79,11 @@ public:
 	// Initializers
 	//
 	static void init_scapevt(metaevents_state& evt_state, uint16_t evt_type, uint16_t buf_size);
+	
+	void set_connection_status_tracking(bool enabled)
+	{
+		m_track_connection_status = enabled;
+	}
 
 private:
 	//
@@ -187,6 +192,7 @@ private:
 	metaevents_state m_mesos_metaevents_state;
 
 	stack<uint8_t*> m_tmp_events_buffer;
+
 	friend class sinsp_analyzer;
 	friend class sinsp_analyzer_fd_listener;
 	friend class sinsp_protodecoder;

@@ -134,6 +134,7 @@ const filtercheck_field_info sinsp_filter_check_fd_fields[] =
 	{PT_CHARBUF, EPF_NONE, PF_NA, "fd.sip.name", "Domain name associated with the server IP address."},
 	{PT_CHARBUF, EPF_NONE, PF_NA, "fd.lip.name", "Domain name associated with the local IP address."},
 	{PT_CHARBUF, EPF_NONE, PF_NA, "fd.rip.name", "Domain name associated with the remote IP address."},
+	{PT_CHARBUF, EPF_NONE, PF_NA, "fd.connectionstate", "for ipv4 and ipv6 FD types, this is the connection state of the socket. Possible values are in_progress, connected and failed."},
 };
 
 sinsp_filter_check_fd::sinsp_filter_check_fd()
@@ -151,6 +152,19 @@ sinsp_filter_check* sinsp_filter_check_fd::allocate_new()
 {
 	return (sinsp_filter_check*) new sinsp_filter_check_fd();
 }
+
+int32_t sinsp_filter_check_fd::parse_field_name(const char* str, bool alloc_state, bool needed_for_filtering)
+{
+	string val(str);
+
+	if(string(val, 0, sizeof("fd.connectionstate") - 1) == "fd.connectionstate")
+	{
+		m_inspector->m_parser->set_connection_status_tracking(true);
+	}
+
+	return sinsp_filter_check::parse_field_name(str, alloc_state, needed_for_filtering);
+}
+
 
 bool sinsp_filter_check_fd::extract_fdname_from_creator(sinsp_evt *evt, OUT uint32_t* len, bool sanitize_strings)
 {
@@ -1264,6 +1278,35 @@ uint8_t* sinsp_filter_check_fd::extract(sinsp_evt *evt, OUT uint32_t* len, bool 
 			m_tbool = evt->fdinfo_name_changed();
 
 			RETURN_EXTRACT_VAR(m_tbool);
+		}
+		break;
+	case TYPE_CONNECTIONSTATE:
+		{
+			if(m_fdinfo == NULL)
+			{
+				return NULL;
+			}
+
+			if(m_fdinfo->is_socket_connected())
+			{
+				ASSERT(!m_fdinfo->is_socket_pending() && !m_fdinfo->is_socket_failed());
+				m_tstr = "connected";
+				RETURN_EXTRACT_STRING(m_tstr);
+			}
+			else if (m_fdinfo->is_socket_pending())
+			{
+				ASSERT(!m_fdinfo->is_socket_connected() && !m_fdinfo->is_socket_failed());
+				m_tstr = "pending";
+				RETURN_EXTRACT_STRING(m_tstr);
+			}
+			else if (m_fdinfo->is_socket_failed())
+			{
+				ASSERT(!m_fdinfo->is_socket_connected() && !m_fdinfo->is_socket_pending());
+				m_tstr = "failed";
+				RETURN_EXTRACT_STRING(m_tstr);
+			}
+
+			return NULL;
 		}
 		break;
 	default:
